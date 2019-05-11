@@ -1,71 +1,47 @@
-// endpoints.go
 package main
 
 import (
-	"bottled/handlers"
-	"encoding/json"
-	"io"
 	"net/http"
-	"os"
 
-	"github.com/gorilla/mux"
+	"google.golang.org/appengine" // Required external App Engine library
 )
 
-func ServerAliveHandler(w http.ResponseWriter, r *http.Request) {
-	var requestBody map[string]interface{}
-	// A very simple health check.
-
-	//Grab and decode the request body from the submitted post body
-	json.NewDecoder(r.Body).Decode(&requestBody)
-
-	//	if err != nil {
-	//		err = errors.Trace(err)
-	//		core.WriteBadRequestErrorResponse(w)
-	//		return
-	//	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	// In the future we could report back on the status of our DB, or our cache
-	// (e.g. Redis) by performing a simple PING, and include them in the response.
-	io.WriteString(w, requestBody["id"].(string))
-}
-
-func Ping(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Pong")
-}
-
 func main() {
-	r := mux.NewRouter()
 
-	h := handlers.NewHandler()
+	h := NewHandler()
 
-	go h.MedicManager(10, 60)
+	http.HandleFunc("/users/login", h.AuthenticateUser)
+	http.HandleFunc("/users/taken", h.AccountExists)
+	http.HandleFunc("/users/new", h.CreateUser)
 
-	users := make(map[string]*handlers.User)
-	users["kirk"] = h.CreateUser("kirk")
-	users["rob"] = h.CreateUser("rob")
+	http.HandleFunc("/athlete/all", h.GetAllAthletes)
+	http.HandleFunc("/athlete/schedule", h.SetEventAthlete)
+	http.HandleFunc("/athlete/bio", h.SetAthleteBio)
+	http.HandleFunc("/athlete/signing/open", h.CanScheduleSigning)
+	http.HandleFunc("/athlete/signing", h.CreateSigning)
+	http.HandleFunc("/athlete/signing/drop", h.DropSigning)
 
-	//u := handlers.NewUser("danny")
-	//	h.Hurt(users["kirk"].GetUserID(), 12)
-	//	h.Hurt(users["rob"].GetUserID(), 5)
-	//	h.Hurt(users["rob"].GetUserID(), 5)
+	http.HandleFunc("/arena/new", h.CreateArena)
+	http.HandleFunc("/arena/taken", h.ArenaExists)
+	http.HandleFunc("/arena/all", h.GetAllArenas)
 
-	r.HandleFunc("/alive", ServerAliveHandler)
-	r.HandleFunc("/", Ping)
-	r.HandleFunc("/bottle/create", h.CreateBottleHandler).Methods("POST")
+	http.HandleFunc("/event/new", h.CreateEvent)
+	http.HandleFunc("/event/taken", h.EventExists)
+	http.HandleFunc("/event/mine", h.GetMyEvents)
 
-	r.HandleFunc("/bottle/receive", h.CreateBottleHandler).Methods("GET")
+	http.HandleFunc("/event/schedule", h.ScheduleEvent)
+	http.HandleFunc("/event/schedule/open", h.CanScheduleEvent)
 
-	err := http.ListenAndServe(":"+os.Getenv("PORT"), r)
-	if err != nil {
-		panic(err)
-	}
-	//	for {
-	//		for _, v := range users {
-	//			fmt.Printf("%s hearts = %.2f\n", v.GetName(), v.CurrentLives())
-	//		}
-	//		time.Sleep(60000 * time.Millisecond)
-	//	}*/
+	http.HandleFunc("/event/price/public", h.EventSetPublicPrice)
+	http.HandleFunc("/event/price/staff", h.EventSetStaffPrice)
+	http.HandleFunc("/event/ticket", h.BuyTickets)
+
+	http.HandleFunc("/event/pair", h.SetEventArena)
+	http.HandleFunc("/event/all", h.GetAllEvents)
+
+	http.HandleFunc("/security/update", h.UpdateSecurityNeeds)
+	http.HandleFunc("/security/all", h.AllGuards)
+	http.HandleFunc("/security/shifts", h.GetShifts)
+
+	appengine.Main() // Starts the server to receive requests
 }
